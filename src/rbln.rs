@@ -226,15 +226,13 @@ impl RBLNFeaturesCollector {
                 .await
             {
                 let driver_version = resp.get_ref().drv_version.clone();
-                let [semver, revision] = driver_version.split("-").collect::<Vec<&str>>()[0..2]
-                else {
-                    return Err(anyhow!(
-                        "Failed to split driver version with hyphens: {}",
-                        driver_version
-                    ));
-                };
+                let (semver, revision) = driver_version
+                    .find(|c| c == '-' || c == '+' || c == '~')
+                    .map(|idx| (&driver_version[..idx], Some(&driver_version[idx + 1..])))
+                    .unwrap_or((driver_version.as_str(), None));
+
                 features.driver_version_full = Some(semver.to_string());
-                features.driver_version_revision = Some(revision.to_string());
+                features.driver_version_revision = revision.map(|r| r.to_string());
 
                 let [semver_major, semver_minor, semver_patch] =
                     semver.split(".").collect::<Vec<&str>>()[0..3]
@@ -313,16 +311,16 @@ impl RBLNFeaturesCollector {
             return Ok(());
         }
 
+
         let driver_version = fs::read_to_string(kernel_version_file)?.trim().to_string();
-        let [semver, revision] = driver_version.split("-").collect::<Vec<&str>>()[0..2] else {
-            error!(
-                "Failed to split driver version with hyphens: {}",
-                driver_version
-            );
-            return Ok(());
-        };
+        let (semver, revision) = driver_version
+            .find(|c| c == '-' || c == '+' || c == '~')
+            .map(|idx| (&driver_version[..idx], Some(&driver_version[idx + 1..])))
+            .unwrap_or((driver_version.as_str(), None));
+
+
         features.driver_version_full = Some(semver.to_string());
-        features.driver_version_revision = Some(revision.to_string());
+        features.driver_version_revision = revision.map(|r| r.to_string());
 
         let [semver_major, semver_minor, semver_patch] =
             semver.split(".").collect::<Vec<&str>>()[0..3]
